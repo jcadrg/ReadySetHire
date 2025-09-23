@@ -1,0 +1,7 @@
+### ReadySetHire API smoke test (use VSCode REST Client)
+@base = https://comp2140a2.uqcloud.net/api
+@jwt = REPLACE_WITH_YOUR_JWT
+
+# Replace /health with a real endpoint once API docs are ready
+GET {{base}}/health
+Authorization: Bearer {{jwt}}
