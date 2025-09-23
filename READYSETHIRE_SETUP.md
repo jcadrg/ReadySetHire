@@ -103,7 +103,7 @@ Add to **.gitignore** if not present:
 ---
 
 ## 7) Minimal fetch helper
-Use the `fetchJson.ts` file we generated earlier. It reads `VITE_API_BASE` and `VITE_API_JWT` and sets the `Authorization: Bearer` header automatically.
+Use the `fetchJson.ts` file. It reads `VITE_API_BASE` and `VITE_API_JWT` and sets the `Authorization: Bearer` header automatically.
 
 ---
 
