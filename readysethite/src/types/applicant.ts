@@ -1,36 +1,28 @@
-export type ApplicantInterviewStatus = "Not Started" | "Completed";
+export type ApplicantStatus = "Not Started" | "Completed";
 
 export interface Applicant {
   id: number;
   interview_id: number;
-  title: "Mr" | "Ms" | "Dr" | string; // keep open-ended if backend allows others
+  title: string;
   firstname: string;
   surname: string;
-  phone_number?: string | null;        // optional per spec
+  phone_number: string | null;
   email_address: string;
-  interview_status: ApplicantInterviewStatus;
-  username: string;                    // owner (student id)
+  interview_status: ApplicantStatus;
+  username: string; // owner
 }
 
 export interface ApplicantCreate {
   interview_id: number;
-  title: Applicant["title"];
+  title: string;
   firstname: string;
   surname: string;
-  email_address: string;
-  interview_status: ApplicantInterviewStatus;
-  username: string;
   phone_number?: string | null;
+  email_address: string;
+  interview_status: ApplicantStatus;
+  username: string;
 }
 
 export type ApplicantUpdate = Partial<
-  Pick<
-    Applicant,
-    | "title"
-    | "firstname"
-    | "surname"
-    | "phone_number"
-    | "email_address"
-    | "interview_status"
-  >
+  Omit<Applicant, "id" | "interview_id" | "username">
 >;

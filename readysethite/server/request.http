@@ -1,0 +1,34 @@
+### ReadySetHire GenAI — local smoke tests
+@base = http://localhost:8080
+@jwt = REPLACE_WITH_YOUR_APP_JWT
+
+### Health
+GET {{base}}/health
+Authorization: Bearer {{jwt}}
+
+### Summarize Applicant
+POST {{base}}/genai/summarize-applicant
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "role": "Frontend Engineer",
+  "seniority": "mid",
+  "skillsHint": ["React", "TypeScript"],
+  "answers": [
+    { "question": "Tell us about yourself", "transcript": "I've worked on React apps for three years focusing on performance and testing..." },
+    { "question": "How do you test React components?", "transcript": "I use Testing Library, MSW, and Playwright for E2E flows in CI." }
+  ]
+}
+
+### Generate Questions
+POST {{base}}/genai/generate-questions
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "role": "Frontend Engineer",
+  "seniority": "mid",
+  "techStack": ["React", "TypeScript", "Vite"],
+  "count": 5
+}

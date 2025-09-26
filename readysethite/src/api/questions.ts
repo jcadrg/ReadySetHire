@@ -1,34 +1,28 @@
+// PostgREST Questions API client
+// Depends on your existing lib/fetchJson.ts
 import { api } from "../lib/fetchJson";
-import type {
-  Question,
-  QuestionCreate,
-  QuestionUpdate,
-} from "../types/question";
+import type { Question, QuestionCreate, QuestionUpdate } from "../types/question";
 
-/** GET /question — list all questions, optionally filter by interview_id */
-export async function listQuestions(interviewId?: number): Promise<Question[]> {
-  const path = interviewId
-    ? `/question?interview_id=eq.${interviewId}`
-    : "/question";
+// GET /question?interview_id=eq.{id}
+export async function listQuestions(interviewId: number): Promise<Question[]> {
+  const path = `/question?interview_id=eq.${interviewId}`;
   return api.get<Question[]>(path);
 }
 
-/** POST /question — create a new question */
-export async function createQuestion(
-  payload: QuestionCreate
-): Promise<Question> {
-  return api.post<Question>("/question", payload);
+// POST /question  (no Prefer header; we refresh UI afterwards)
+export async function createQuestion(input: QuestionCreate): Promise<void> {
+  const path = `/question`;
+  await api.post(path, input);
 }
 
-/** PATCH /question?id=eq.<id> — update question */
-export async function updateQuestion(
-  id: number,
-  changes: QuestionUpdate
-): Promise<Question[]> {
-  return api.patch<Question[]>(`/question?id=eq.${id}`, changes);
+// PATCH /question?id=eq.{id}  (no Prefer header; we refresh UI afterwards)
+export async function updateQuestion(id: number, changes: QuestionUpdate): Promise<void> {
+  const path = `/question?id=eq.${id}`;
+  await api.patch(path, changes);
 }
 
-/** DELETE /question?id=eq.<id> — delete question */
+// DELETE /question?id=eq.{id}
 export async function deleteQuestion(id: number): Promise<void> {
-  await api.del(`/question?id=eq.${id}`);
+  const path = `/question?id=eq.${id}`;
+  await api.delete(path);
 }

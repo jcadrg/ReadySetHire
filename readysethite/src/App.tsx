@@ -1,37 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { NavLink, Route, Routes } from "react-router-dom";
+import InterviewsPage from "./pages/InterviewsPage";
+import QuestionsPage from "./pages/QuestionsPage";
+import ApplicantsPage from "./pages/ApplicantsPage";
+import TakeInterviewPage from "./pages/TakeInterviewPage";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <h1 className="text-3xl font-bold text-indigo-600">Hello Tailwind v4</h1>
-      <h1 className="text-3xl font-bold text-indigo-600">This is the landing page for the ReadySetHire project!!</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-6">
+          <div className="font-bold text-xl">ReadySetHire</div>
+          <nav className="flex gap-4 text-sm">
+            <Nav to="/" label="Interviews" />
+            <Nav to="/questions" label="Questions" />
+            <Nav to="/applicants" label="Applicants" />
+            <Nav to="/take" label="Take Interview" />
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <Routes>
+          <Route path="/" element={<InterviewsPage />} />
+          <Route path="/questions" element={<QuestionsPage />} />
+          <Route path="/applicants" element={<ApplicantsPage />} />
+          <Route path="/take" element={<TakeInterviewPage />} />
+        </Routes>
+      </main>
+
+      <footer className="border-t">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-slate-500">
+          © {new Date().getFullYear()} ReadySetHire — built for learning React + PostgREST + LangChain
+        </div>
+      </footer>
+    </div>
+  );
 }
 
-export default App
+function Nav({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        "rounded-full px-3 py-1 transition " +
+        (isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")
+      }
+    >
+      {label}
+    </NavLink>
+  );
+}
