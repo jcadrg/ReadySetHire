@@ -1,7 +1,126 @@
-### ReadySetHire API smoke test (use VSCode REST Client)
+### List all interviews
 @base = https://comp2140a2.uqcloud.net/api
-@jwt = REPLACE_WITH_YOUR_JWT
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic3R1ZGVudCIsInVzZXJuYW1lIjoiczQ4MjgyMjEifQ.Zq2VrHuvfntJ7PEkocDOfMIeOKwp6xwJpefpcSpdChM
 
-# Replace /health with a real endpoint once API docs are ready
-GET {{base}}/health
+GET {{base}}/interview
+Authorization: Bearer {{jwt}}
+
+### Create interview
+POST {{base}}/interview
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "title": "Front-end Developer Interview",
+  "job_role": "Senior Front-end Developer",
+  "description": "Interview for candidates with React experience",
+  "status": "Published",
+  "username": "s10000"
+}
+
+### Update interview (id=1)
+PATCH {{base}}/interview?id=eq.1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "status": "Draft",
+  "description": "Updated description"
+}
+
+### Delete interview (id=1)
+DELETE {{base}}/interview?id=eq.1
+Authorization: Bearer {{jwt}}
+
+### List questions for interview 1
+GET {{base}}/question?interview_id=eq.1
+Authorization: Bearer {{jwt}}
+
+### Create question
+POST {{base}}/question
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "interview_id": 1,
+  "question": "Explain the difference between let and const in JavaScript",
+  "difficulty": "Easy",
+  "username": "s10000"
+}
+
+### Update question (id=1)
+PATCH {{base}}/question?id=eq.1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "difficulty": "Advanced"
+}
+
+### Delete question (id=1)
+DELETE {{base}}/question?id=eq.1
+Authorization: Bearer {{jwt}}
+
+### List applicants for interview 1
+GET {{base}}/applicant?interview_id=eq.1
+Authorization: Bearer {{jwt}}
+
+### Create applicant
+POST {{base}}/applicant
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "interview_id": 1,
+  "title": "Mr",
+  "firstname": "John",
+  "surname": "Smith",
+  "phone_number": "+61 412 345 678",
+  "email_address": "john.smith@example.com",
+  "interview_status": "Not Started",
+  "username": "s100000"
+}
+
+### Update applicant (id=1)
+PATCH {{base}}/applicant?id=eq.1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "interview_status": "Completed",
+  "phone_number": "+61 400 000 000"
+}
+
+### Delete applicant (id=1)
+DELETE {{base}}/applicant?id=eq.1
+Authorization: Bearer {{jwt}}
+
+### List answers for applicant 3
+GET {{base}}/applicant_answer?applicant_id=eq.3
+Authorization: Bearer {{jwt}}
+
+### Create answer
+POST {{base}}/applicant_answer
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "interview_id": 1,
+  "question_id": 2,
+  "applicant_id": 3,
+  "answer": "I would use const for values that shouldn't change.",
+  "username": "s100000"
+}
+
+### Update answer (id=1)
+PATCH {{base}}/applicant_answer?id=eq.1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+  "answer": "Updated transcription text"
+}
+
+### Delete answer (id=1)
+DELETE {{base}}/applicant_answer?id=eq.1
 Authorization: Bearer {{jwt}}
