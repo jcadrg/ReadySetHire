@@ -1,17 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  listInterviews,
-  createInterview,
-  updateInterview,
-  deleteInterview,
-} from "../api/interviews";
+import { listInterviews, createInterview, updateInterview, deleteInterview } from "../api/interviews";
 import type { Interview } from "../types/interview";
 import Modal from "../components/Modal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import InterviewForm from "../components/InterviewForm";
 
-// 🔒 Hard-coded owner to satisfy RLS (replace with your student id)
+// Hard-coded owner to satisfy RLS
 const OWNER_USERNAME = "s4828221";
+
+// Form payload from InterviewForm
+type InterviewFormInput = {
+  title: string;
+  job_role: string;
+  description: string;
+  status: "Published" | "Draft" | "Archived";
+  username?: string; // we inject this on create
+};
+type InterviewUpdate = Partial<Omit<InterviewFormInput, "username">>;
+
+function errMsg(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
 
 export default function InterviewsPage() {
   const [items, setItems] = useState<Interview[]>([]);
@@ -23,36 +32,37 @@ export default function InterviewsPage() {
   const [pendingDelete, setPendingDelete] = useState<Interview | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Fetch and refresh the list of interviews
   async function refresh() {
     setLoading(true);
     setError(null);
     try {
       const data = await listInterviews();
       setItems(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load");
+    } catch (e: unknown) {
+      setError(errMsg(e, "Failed to load"));
     } finally {
       setLoading(false);
     }
   }
-
+  // Run once on mount to load interviews
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
 
+  // Memoized count of published interviews
   const totalPublished = useMemo(
     () => items.filter((i) => i.status === "Published").length,
     [items]
   );
 
+  // Render
   return (
     <div className="grid gap-6">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold">Interviews</h1>
-          <p className="text-slate-600 text-sm">
-            Manage the interviews you publish to applicants.
-          </p>
+          <p className="text-slate-600 text-sm">Manage the interviews you publish to applicants.</p>
           <p className="text-xs text-slate-500 mt-1">
             {items.length} total • {totalPublished} published
           </p>
@@ -65,9 +75,7 @@ export default function InterviewsPage() {
         </button>
       </div>
 
-      {loading && (
-        <div className="animate-pulse text-slate-500">Loading interviews…</div>
-      )}
+      {loading && <div className="animate-pulse text-slate-500">Loading interviews…</div>}
       {error && <div className="text-red-600">{error}</div>}
 
       {!loading && !error && (
@@ -88,17 +96,13 @@ export default function InterviewsPage() {
                 </thead>
                 <tbody>
                   {items.map((it) => (
-                    <tr
-                      key={it.id}
-                      className="[&>td]:py-3 [&>td]:px-4 border-t"
-                    >
+                    <tr key={it.id} className="[&>td]:py-3 [&>td]:px-4 border-t">
                       <td className="font-medium">{it.title}</td>
                       <td className="text-slate-600">{it.job_role}</td>
                       <td>
                         <span
                           className={
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs " +
-                            badgeClass(it.status)
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs " + badgeClass(it.status)
                           }
                         >
                           {it.status}
@@ -129,27 +133,19 @@ export default function InterviewsPage() {
       )}
 
       {/* Create */}
-      <Modal
-        open={openCreate}
-        onClose={() => setOpenCreate(false)}
-        title="Create Interview"
-      >
+      <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Create Interview">
         <InterviewForm
           // Prefill + gray-out username inside the form (form makes it readOnly)
-          initial={{ username: OWNER_USERNAME }}
+          initial={{ username: OWNER_USERNAME } as Partial<Interview>}
           submitting={submitting}
-          onSubmit={async (payload) => {
+          onSubmit={async (payload: InterviewFormInput) => {
             setSubmitting(true);
             try {
-              // Force owner into payload to satisfy RLS
-              await createInterview({
-                ...(payload as any),
-                username: OWNER_USERNAME,
-              });
+              await createInterview({ ...payload, username: OWNER_USERNAME });
               setOpenCreate(false);
-              refresh();
-            } catch (e: any) {
-              alert(e?.message ?? "Failed to create interview");
+              await refresh();
+            } catch (e: unknown) {
+              alert(errMsg(e, "Failed to create interview"));
             } finally {
               setSubmitting(false);
             }
@@ -158,23 +154,19 @@ export default function InterviewsPage() {
       </Modal>
 
       {/* Edit */}
-      <Modal
-        open={!!editing}
-        onClose={() => setEditing(null)}
-        title="Edit Interview"
-      >
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Interview">
         {editing && (
           <InterviewForm
             initial={editing}
             submitting={submitting}
-            onSubmit={async (changes) => {
+            onSubmit={async (changes: InterviewUpdate) => {
               setSubmitting(true);
               try {
-                await updateInterview(editing.id, changes as any);
+                await updateInterview(editing.id, changes);
                 setEditing(null);
-                refresh();
-              } catch (e: any) {
-                alert(e?.message ?? "Failed to update interview");
+                await refresh();
+              } catch (e: unknown) {
+                alert(errMsg(e, "Failed to update interview"));
               } finally {
                 setSubmitting(false);
               }
@@ -187,16 +179,16 @@ export default function InterviewsPage() {
       <ConfirmDialog
         open={!!pendingDelete}
         title="Delete interview"
-        message={`This will permanently delete "${pendingDelete?.title}".`}
+        message={`This will permanently delete "${pendingDelete?.title ?? ""}".`}
         onCancel={() => setPendingDelete(null)}
         onConfirm={async () => {
           if (!pendingDelete) return;
           try {
             await deleteInterview(pendingDelete.id);
             setPendingDelete(null);
-            refresh();
-          } catch (e: any) {
-            alert(e?.message ?? "Failed to delete");
+            await refresh();
+          } catch (e: unknown) {
+            alert(errMsg(e, "Failed to delete"));
           }
         }}
       />
@@ -209,9 +201,7 @@ function Empty() {
     <div className="grid place-items-center rounded-2xl border bg-white py-16 text-center text-slate-600">
       <div className="max-w-md">
         <div className="text-3xl mb-2">🗂️</div>
-        <p className="mb-4">
-          No interviews yet. Create your first interview to get started.
-        </p>
+        <p className="mb-4">No interviews yet. Create your first interview to get started.</p>
         <p className="text-xs">Use the “New Interview” button above.</p>
       </div>
     </div>

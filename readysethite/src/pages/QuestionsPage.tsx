@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listInterviews } from "../api/interviews";
-import {
-  createQuestion,
-  deleteQuestion,
-  listQuestions,
-  updateQuestion,
-} from "../api/questions";
+import { createQuestion, deleteQuestion, listQuestions, updateQuestion } from "../api/questions";
 import type { Interview } from "../types/interview";
 import type { Question } from "../types/question";
 import Modal from "../components/Modal";
@@ -13,8 +8,17 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import QuestionForm from "../components/QuestionForm";
 import { aiSuggestQuestions } from "../api/genai";
 
+type Difficulty = Question["difficulty"];
+
+type QuestionCreateInput = {
+  question: string;
+  difficulty: Difficulty;
+  username?: string;
+};
+type QuestionUpdateInput = Partial<Omit<QuestionCreateInput, "username">>;
+
 function errMsg(err: unknown) {
-  return err instanceof Error ? err.message : String(err);
+  return err instanceof Error ? err.message : "Unexpected error";
 }
 
 export default function QuestionsPage() {
@@ -35,6 +39,7 @@ export default function QuestionsPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOut, setAiOut] = useState<string[]>([]);
 
+  // Load interviews once on mount
   useEffect(() => {
     async function loadInterviews() {
       try {
@@ -45,12 +50,14 @@ export default function QuestionsPage() {
         alert(errMsg(err));
       }
     }
-    loadInterviews();
+    void loadInterviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load questions when selected interview changes
   useEffect(() => {
     if (selectedId == null) return;
-    refresh(selectedId);
+    void refresh(selectedId);
   }, [selectedId]);
 
   async function refresh(interviewId: number) {
@@ -59,13 +66,14 @@ export default function QuestionsPage() {
     try {
       const data = await listQuestions(interviewId);
       setItems(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load questions");
+    } catch (e: unknown) {
+      setError(errMsg(e));
     } finally {
       setLoading(false);
     }
   }
-
+  
+  // Memoized selected interview
   const selectedInterview = useMemo(
     () => interviews.find((i) => i.id === selectedId) ?? null,
     [interviews, selectedId]
@@ -76,9 +84,7 @@ export default function QuestionsPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Questions</h1>
-          <p className="text-slate-600 text-sm">
-            Manage questions for a specific interview.
-          </p>
+          <p className="text-slate-600 text-sm">Manage questions for a specific interview.</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -99,10 +105,7 @@ export default function QuestionsPage() {
           >
             + New Question
           </button>
-          <button
-            className="rounded-lg border px-3 py-2"
-            onClick={() => setOpenAISuggest(true)}
-          >
+          <button className="rounded-lg border px-3 py-2" onClick={() => setOpenAISuggest(true)}>
             ⚡ AI Suggest
           </button>
         </div>
@@ -116,11 +119,7 @@ export default function QuestionsPage() {
 
       {selectedInterview && (
         <>
-          {loading && (
-            <div className="animate-pulse text-slate-500">
-              Loading questions…
-            </div>
-          )}
+          {loading && <div className="animate-pulse text-slate-500">Loading questions…</div>}
           {error && <div className="text-red-600">{error}</div>}
 
           {!loading && !error && (
@@ -141,8 +140,7 @@ export default function QuestionsPage() {
                       <td>
                         <span
                           className={
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs " +
-                            badgeClass(q.difficulty)
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs " + badgeClass(q.difficulty)
                           }
                         >
                           {q.difficulty}
@@ -150,10 +148,7 @@ export default function QuestionsPage() {
                       </td>
                       <td className="text-slate-600">{q.username}</td>
                       <td className="flex gap-2">
-                        <button
-                          className="rounded-lg border px-3 py-1 hover:bg-slate-50"
-                          onClick={() => setEditing(q)}
-                        >
+                        <button className="rounded-lg border px-3 py-1 hover:bg-slate-50" onClick={() => setEditing(q)}>
                           Edit
                         </button>
                         <button
@@ -170,34 +165,28 @@ export default function QuestionsPage() {
 
               {items.length === 0 && (
                 <div className="px-4 py-12 text-center text-slate-600">
-                  No questions yet for{" "}
-                  <strong>{selectedInterview.title}</strong> — add your first
-                  one.
+                  No questions yet for <strong>{selectedInterview.title}</strong> — add your first one.
                 </div>
               )}
             </div>
           )}
 
           {/* Create */}
-          <Modal
-            open={openCreate}
-            onClose={() => setOpenCreate(false)}
-            title="Create Question"
-          >
+          <Modal open={openCreate} onClose={() => setOpenCreate(false)} title="Create Question">
             <QuestionForm
               submitting={submitting}
-              onSubmit={async (payload) => {
+              onSubmit={async (payload: QuestionCreateInput) => {
                 if (selectedId == null) return;
                 setSubmitting(true);
                 try {
                   await createQuestion({
-                    ...(payload as any),
+                    ...payload,
                     interview_id: selectedId,
                   });
                   setOpenCreate(false);
-                  refresh(selectedId);
-                } catch (e: any) {
-                  alert(e?.message ?? "Failed to create question");
+                  await refresh(selectedId);
+                } catch (e: unknown) {
+                  alert(errMsg(e));
                 } finally {
                   setSubmitting(false);
                 }
@@ -206,23 +195,19 @@ export default function QuestionsPage() {
           </Modal>
 
           {/* Edit */}
-          <Modal
-            open={!!editing}
-            onClose={() => setEditing(null)}
-            title="Edit Question"
-          >
+          <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Question">
             {editing && (
               <QuestionForm
                 initial={editing}
                 submitting={submitting}
-                onSubmit={async (changes) => {
+                onSubmit={async (changes: QuestionUpdateInput) => {
                   setSubmitting(true);
                   try {
-                    await updateQuestion(editing.id, changes as any);
+                    await updateQuestion(editing.id, changes);
                     setEditing(null);
-                    refresh(selectedId!);
-                  } catch (e: any) {
-                    alert(e?.message ?? "Failed to update question");
+                    if (selectedId != null) await refresh(selectedId);
+                  } catch (e: unknown) {
+                    alert(errMsg(e));
                   } finally {
                     setSubmitting(false);
                   }
@@ -242,18 +227,19 @@ export default function QuestionsPage() {
               try {
                 await deleteQuestion(pendingDelete.id);
                 setPendingDelete(null);
-                refresh(selectedId);
-              } catch (e: any) {
-                alert(e?.message ?? "Failed to delete");
+                await refresh(selectedId);
+              } catch (e: unknown) {
+                alert(errMsg(e));
               }
             }}
           />
+
           {/* AI Suggest */}
           <Modal
             open={openAISuggest}
             onClose={() => {
               setOpenAISuggest(false);
-              setAiOut([]); // clear previous results
+              setAiOut([]);
             }}
             title="AI Suggest Questions"
           >
@@ -266,22 +252,17 @@ export default function QuestionsPage() {
                 const form = e.currentTarget as HTMLFormElement;
                 const formData = new FormData(form);
 
+                const difficulty = (formData.get("difficulty") as Difficulty | null) ?? "Intermediate";
+                const countRaw = formData.get("count");
+                const count = typeof countRaw === "string" ? Number(countRaw) : 5;
+
                 setAiLoading(true);
                 try {
                   const { questions } = await aiSuggestQuestions({
-                    jobRole: String(
-                      formData.get("jobRole") ??
-                        selectedInterview.job_role ??
-                        ""
-                    ),
-                    description: String(
-                      formData.get("description") ??
-                        selectedInterview.description ??
-                        ""
-                    ),
-                    difficulty:
-                      (formData.get("difficulty") as any) ?? "Intermediate",
-                    count: Number(formData.get("count") ?? 5),
+                    jobRole: String(formData.get("jobRole") ?? selectedInterview.job_role ?? ""),
+                    description: String(formData.get("description") ?? selectedInterview.description ?? ""),
+                    difficulty,
+                    count: Number.isFinite(count) ? count : 5,
                   });
                   setAiOut(questions);
                 } finally {
@@ -303,28 +284,14 @@ export default function QuestionsPage() {
                 defaultValue={selectedInterview?.description ?? ""}
               />
               <div className="flex gap-2">
-                <select
-                  name="difficulty"
-                  className="input"
-                  defaultValue="Intermediate"
-                >
+                <select name="difficulty" className="input" defaultValue="Intermediate">
                   <option>Easy</option>
                   <option>Intermediate</option>
                   <option>Advanced</option>
                 </select>
-                <input
-                  type="number"
-                  name="count"
-                  min={1}
-                  max={10}
-                  defaultValue={5}
-                  className="input w-24"
-                />
+                <input type="number" name="count" min={1} max={10} defaultValue={5} className="input w-24" />
               </div>
-              <button
-                className="rounded bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
-                disabled={aiLoading}
-              >
+              <button className="rounded bg-slate-900 text-white px-4 py-2 disabled:opacity-50" disabled={aiLoading}>
                 {aiLoading ? "Thinking…" : "Generate"}
               </button>
             </form>
@@ -332,9 +299,7 @@ export default function QuestionsPage() {
             {aiOut.length > 0 && (
               <div className="mt-4 grid gap-2">
                 <div className="flex justify-between items-center mb-1">
-                  <div className="text-sm text-slate-600">
-                    {aiOut.length} suggestion(s)
-                  </div>
+                  <div className="text-sm text-slate-600">{aiOut.length} suggestion(s)</div>
                   <button
                     className="text-xs rounded border px-2 py-1"
                     onClick={async () => {
@@ -346,12 +311,12 @@ export default function QuestionsPage() {
                             question: q,
                             difficulty: "Intermediate",
                             username: "s4828221",
-                          } as any)
+                          })
                         )
                       );
                       setOpenAISuggest(false);
                       setAiOut([]);
-                      refresh(selectedId);
+                      await refresh(selectedId);
                     }}
                   >
                     Add all
@@ -359,10 +324,7 @@ export default function QuestionsPage() {
                 </div>
 
                 {aiOut.map((q, i) => (
-                  <div
-                    key={i}
-                    className="rounded border bg-white p-3 flex items-center gap-2"
-                  >
+                  <div key={i} className="rounded border bg-white p-3 flex items-center gap-2">
                     <span className="text-slate-600 text-xs w-6">{i + 1}.</span>
                     <span className="flex-1">{q}</span>
                     <button
@@ -374,8 +336,8 @@ export default function QuestionsPage() {
                           question: q,
                           difficulty: "Intermediate",
                           username: "s4828221",
-                        } as any);
-                        refresh(selectedId);
+                        });
+                        await refresh(selectedId);
                       }}
                     >
                       Add

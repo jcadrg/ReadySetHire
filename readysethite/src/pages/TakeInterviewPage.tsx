@@ -9,23 +9,28 @@ import type { Question } from "../types/question";
 import type { Applicant } from "../types/applicant";
 import { useRecorder } from "../lib/useRecorder";
 
-// owner to satisfy RLS (my student id)
+// 🔒 owner to satisfy RLS (your student id)
 const OWNER_USERNAME = "s4828221";
 
-// Optional: your Node transcriber endpoint (FormData {audio})
+// Optional: Node transcriber endpoint (FormData { audio })
 const TRANSCRIBE_URL =
-  (import.meta as any).env?.VITE_TRANSCRIBE_URL || "http://localhost:8080/api/transcribe";
+  (import.meta.env?.VITE_TRANSCRIBE_URL as string | undefined) ??
+  "http://localhost:8080/api/transcribe";
+
+function errMsg(err: unknown, fallback = "Unexpected error") {
+  return err instanceof Error ? err.message : fallback;
+}
 
 export default function TakeInterviewPage() {
-  // read optional route params /take/:interviewId/:applicantId
+  // optional route params /take/:interviewId/:applicantId
   const { interviewId: pInt, applicantId: pApp } = useParams();
   const [search] = useSearchParams();
 
-  // initial ids (from params or query), may be NaN
+  // initial ids (from params or query)
   const initialInterviewId = Number(pInt ?? search.get("interview_id"));
   const initialApplicantId = Number(pApp ?? search.get("applicant_id"));
 
-  // selector UI state (we use these when params are missing/invalid)
+  // selection UI state (used when ids are missing/invalid)
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [selectedInterviewId, setSelectedInterviewId] = useState<number | null>(
     Number.isFinite(initialInterviewId) ? initialInterviewId : null
@@ -58,8 +63,8 @@ export default function TakeInterviewPage() {
       try {
         const data = await listInterviews();
         setInterviews(data);
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load interviews");
+      } catch (e: unknown) {
+        setError(errMsg(e, "Failed to load interviews"));
       }
     })();
   }, []);
@@ -79,7 +84,7 @@ export default function TakeInterviewPage() {
         setApplicants(apps);
         setQuestions(qs);
 
-        // auto-attach applicant if id was provided in URL and exists
+        // auto-attach applicant if id was provided in URL but not found
         if (selectedApplicantId && !apps.find((a) => a.id === selectedApplicantId)) {
           setSelectedApplicantId(null);
         }
@@ -87,12 +92,13 @@ export default function TakeInterviewPage() {
         if (!selectedApplicantId && apps.length === 1) {
           setSelectedApplicantId(apps[0].id);
         }
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load interview data");
+      } catch (e: unknown) {
+        setError(errMsg(e, "Failed to load interview data"));
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedInterviewId]);
 
   // Attach the selected applicant object
@@ -105,14 +111,13 @@ export default function TakeInterviewPage() {
     setApplicant(a);
   }, [selectedApplicantId, applicants, selectedInterviewId]);
 
-  // Try to initialize from URL immediately (if ids valid)
+  // Try to initialize from URL immediately (if ids valid); block back nav
   useEffect(() => {
-    // guard: NaN becomes null
     const iId = Number.isFinite(initialInterviewId) ? initialInterviewId : null;
     const aId = Number.isFinite(initialApplicantId) ? initialApplicantId : null;
     if (iId != null) setSelectedInterviewId(iId);
     if (aId != null) setSelectedApplicantId(aId);
-    // prevent back nav during flow
+
     window.history.pushState(null, "", window.location.href);
     const onPop = () => {
       window.history.pushState(null, "", window.location.href);
@@ -128,21 +133,30 @@ export default function TakeInterviewPage() {
     fd.append("audio", aBlob, "answer.webm");
     const res = await fetch(TRANSCRIBE_URL, { method: "POST", body: fd });
     if (!res.ok) {
-      const txt = await res.text();
+      const txt = await res.text().catch(() => "");
       throw new Error(`Transcription failed: ${res.status} ${txt}`);
     }
-    const data = await res.json().catch(() => ({}));
-    return data.text ?? "";
+    const data: unknown = await res.json().catch(() => ({}));
+    if (
+      data &&
+      typeof data === "object" &&
+      "text" in data &&
+      typeof (data as { text: unknown }).text === "string"
+    ) {
+      return (data as { text: string }).text;
+    }
+    return "";
   }
 
   async function handleSubmit() {
     if (!current || !applicant || !selectedInterviewId) return;
     setSaving(true);
     try {
-      let text = transcript;
+      let text = transcript.trim();
       if (!text && blob) {
         text = await transcribeAudio(blob);
       }
+
       await createAnswer({
         interview_id: selectedInterviewId,
         question_id: current.id,
@@ -150,8 +164,11 @@ export default function TakeInterviewPage() {
         answer: text || null,
         username: OWNER_USERNAME,
       });
+
       setSubmitted(true);
+
       if (!isLast) {
+        // advance to next after a short ack
         setTimeout(() => {
           setTranscript("");
           setSubmitted(false);
@@ -160,8 +177,8 @@ export default function TakeInterviewPage() {
       } else {
         await updateApplicant(applicant.id, { interview_status: "Completed" });
       }
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to save answer");
+    } catch (e: unknown) {
+      alert(errMsg(e, "Failed to save answer"));
     } finally {
       setSaving(false);
     }
@@ -184,7 +201,8 @@ export default function TakeInterviewPage() {
             <select
               value={selectedInterviewId ?? ""}
               onChange={(e) => {
-                setSelectedInterviewId(e.target.value ? Number(e.target.value) : null);
+                const val = e.target.value ? Number(e.target.value) : NaN;
+                setSelectedInterviewId(Number.isFinite(val) ? val : null);
                 setIdx(0);
                 setSelectedApplicantId(null);
                 setQuestions([]);
@@ -205,7 +223,10 @@ export default function TakeInterviewPage() {
             <label className="block text-sm text-slate-600 mb-1">Select applicant</label>
             <select
               value={selectedApplicantId ?? ""}
-              onChange={(e) => setSelectedApplicantId(e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : NaN;
+                setSelectedApplicantId(Number.isFinite(val) ? val : null);
+              }}
               className="input"
               disabled={!selectedInterviewId || applicants.length === 0}
             >
@@ -234,10 +255,7 @@ export default function TakeInterviewPage() {
             <button
               className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
               disabled={!selectedInterviewId || !selectedApplicantId || questions.length === 0}
-              onClick={() => {
-                // start the flow → just render below by clearing any error flags
-                setError(null);
-              }}
+              onClick={() => setError(null)}
             >
               Start
             </button>
@@ -309,11 +327,10 @@ export default function TakeInterviewPage() {
                 </button>
               </>
             )}
-            {state === "stopped" && (
-              <span className="text-xs text-slate-600">Recording captured.</span>
-            )}
+            {state === "stopped" && <span className="text-xs text-slate-600">Recording captured.</span>}
           </div>
           {recErr && <div className="text-red-600 text-sm">{recErr}</div>}
+
           {/* Playback */}
           {/* biome-ignore lint/a11y/useMediaCaption: dev tool */}
           {blob && <audio controls src={URL.createObjectURL(blob)} className="mt-2" />}

@@ -17,7 +17,7 @@ export default function QuestionForm({
     (initial?.difficulty as Difficulty) ?? "Easy"
   );
   const [username, setUsername] = useState(initial?.username ?? "");
-
+  // Reset form when initial changes (e.g. when editing a different item)
   useEffect(() => {
     if (initial) {
       setQuestion(initial.question ?? "");

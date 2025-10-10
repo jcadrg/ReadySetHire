@@ -1,69 +1,25 @@
-# React + TypeScript + Vite
+Use of Generative AI (GenAI)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+We integrated and tested GenAI models in two main areas of the application:
 
-Currently, two official plugins are available:
+Question Generation (AI Suggest Questions)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Used ChatGPT (OpenAI GPT-4o-mini) through a backend endpoint (/genai/suggest-questions).
 
-## Expanding the ESLint configuration
+Purpose: automatically generate short, role-specific interview questions from job description, difficulty, and context.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Benefit: saves recruiters time in curating balanced question sets.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Answer Summarization (AI Summarize Answers)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Used ChatGPT (OpenAI GPT-4o-mini) via backend endpoint (/genai/summarize-answers).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Purpose: transform raw applicant Q&A transcripts into recruiter-friendly summaries (strengths, concerns, recommendation).
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Benefit: supports reviewers but does not replace human judgment.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Development Process
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+During coding and documentation, I used ChatGPT to debug integration errors, refactor TypeScript, and write structured outlines (responsible AI, accessibility).
+
+For evaluation of code quality and explanations, I relied on ChatGPT only, not on Claude or Gemini.

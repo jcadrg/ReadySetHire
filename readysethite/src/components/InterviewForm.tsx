@@ -19,7 +19,7 @@ export default function InterviewForm({
     (initial?.status as InterviewStatus) ?? "Draft"
   );
   const [username, setUsername] = useState(initial?.username ?? "");
-
+  // Reset form when initial changes (e.g. when editing a different item)
   useEffect(() => {
     if (initial) {
       setTitle(initial.title ?? "");
@@ -32,7 +32,7 @@ export default function InterviewForm({
 
   const valid =
     title.trim() && jobRole.trim() && status && username.trim();
-
+  // render
   return (
     <form
       onSubmit={(e) => {

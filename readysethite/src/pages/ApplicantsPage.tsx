@@ -15,8 +15,26 @@ import { listQuestions } from "../api/questions";
 import { listAnswersByApplicant } from "../api/applicantAnswers";
 import { aiSummarizeAnswers } from "../api/genai";
 
-// Hard-coded owner to satisfy RLS
+// 🔒 Hard-coded owner to satisfy RLS
 const OWNER_USERNAME = "s4828221";
+
+// Narrow helper to render errors without using `any`
+function errMsg(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
+
+// Shape that the ApplicantForm yields on submit
+type ApplicantFormInput = {
+  title: string;
+  firstname: string;
+  surname: string;
+  phone_number?: string | null;
+  email_address: string;
+  interview_status: "Not Started" | "Completed";
+};
+
+// Narrow update shape (what we pass to updateApplicant)
+type ApplicantUpdate = Partial<ApplicantFormInput>;
 
 export default function ApplicantsPage() {
   const [interviews, setInterviews] = useState<Interview[]>([]);
@@ -30,6 +48,7 @@ export default function ApplicantsPage() {
   const [editing, setEditing] = useState<Applicant | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Applicant | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
   // AI summary UI state
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
@@ -41,15 +60,17 @@ export default function ApplicantsPage() {
         const data = await listInterviews();
         setInterviews(data);
         if (data.length && selectedId == null) setSelectedId(data[0].id);
-      } catch (e) {
+      } catch (e: unknown) {
+        // keep silent here; page has its own error area
         console.error(e);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedId == null) return;
-    refresh(selectedId);
+    void refresh(selectedId);
   }, [selectedId]);
 
   async function refresh(interviewId: number) {
@@ -58,39 +79,10 @@ export default function ApplicantsPage() {
     try {
       const data = await listApplicants(interviewId);
       setItems(data);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load applicants");
+    } catch (e: unknown) {
+      setError(errMsg(e, "Failed to load applicants"));
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function summarize(applicant: Applicant, interviewId: number) {
-    setAiBusy(true);
-    setSummary(null);
-    setSummaryOpen(true);
-    try {
-      const [answers, questions] = await Promise.all([
-        listAnswersByApplicant(applicant.id),
-        listQuestions(interviewId),
-      ]);
-
-      const qa = questions.map((q) => ({
-        question: q.question,
-        answer: answers.find((a) => a.question_id === q.id)?.answer ?? null,
-      }));
-
-      const jobRole = selectedInterview?.job_role ?? "Candidate";
-      const { summary } = await aiSummarizeAnswers({
-        jobRole,
-        answers: qa,
-      });
-
-      setSummary(summary);
-    } catch (e: any) {
-      setSummary(`Failed to summarize: ${e?.message ?? "Unknown error"}`);
-    } finally {
-      setAiBusy(false);
     }
   }
 
@@ -110,6 +102,36 @@ export default function ApplicantsPage() {
     const url = inviteUrlFor(app);
     await navigator.clipboard.writeText(url);
     alert("Invite link copied to clipboard:\n\n" + url);
+  }
+
+  async function summarize(applicant: Applicant, interviewId: number) {
+    setAiBusy(true);
+    setSummary(null);
+    setSummaryOpen(true);
+    try {
+      const [answers, questions] = await Promise.all([
+        listAnswersByApplicant(applicant.id),
+        listQuestions(interviewId),
+      ]);
+
+      // Join Q&A for the model
+      const qa = questions.map((q) => ({
+        question: q.question,
+        answer: answers.find((a) => a.question_id === q.id)?.answer ?? null,
+      }));
+
+      const jobRole = selectedInterview?.job_role ?? "Candidate";
+      const result = await aiSummarizeAnswers({
+        jobRole,
+        answers: qa,
+      });
+
+      setSummary(result.summary);
+    } catch (e: unknown) {
+      setSummary(`Failed to summarize: ${errMsg(e, "Unknown error")}`);
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   return (
@@ -203,7 +225,7 @@ export default function ApplicantsPage() {
                         </button>
                         <button
                           className="rounded-lg bg-emerald-600 px-3 py-1 text-white hover:bg-emerald-700"
-                          onClick={() => copyInvite(a)}
+                          onClick={() => void copyInvite(a)}
                         >
                           Copy Invite Link
                         </button>
@@ -215,7 +237,7 @@ export default function ApplicantsPage() {
                         </button>
                         <button
                           className="rounded-lg border px-3 py-1 hover:bg-slate-50"
-                          onClick={() => summarize(a, a.interview_id)}
+                          onClick={() => void summarize(a, a.interview_id)}
                         >
                           Summarize
                         </button>
@@ -242,7 +264,7 @@ export default function ApplicantsPage() {
           >
             <ApplicantForm
               submitting={submitting}
-              onSubmit={async (payload) => {
+              onSubmit={async (payload: ApplicantFormInput) => {
                 if (selectedId == null) return;
                 setSubmitting(true);
                 try {
@@ -252,9 +274,9 @@ export default function ApplicantsPage() {
                     username: OWNER_USERNAME,
                   });
                   setOpenCreate(false);
-                  refresh(selectedId);
-                } catch (e: any) {
-                  alert(e?.message ?? "Failed to create applicant");
+                  await refresh(selectedId);
+                } catch (e: unknown) {
+                  alert(errMsg(e, "Failed to create applicant"));
                 } finally {
                   setSubmitting(false);
                 }
@@ -272,14 +294,14 @@ export default function ApplicantsPage() {
               <ApplicantForm
                 initial={editing}
                 submitting={submitting}
-                onSubmit={async (changes) => {
+                onSubmit={async (changes: ApplicantUpdate) => {
                   setSubmitting(true);
                   try {
                     await updateApplicant(editing.id, changes);
                     setEditing(null);
-                    refresh(selectedId!);
-                  } catch (e: any) {
-                    alert(e?.message ?? "Failed to update applicant");
+                    if (selectedId != null) await refresh(selectedId);
+                  } catch (e: unknown) {
+                    alert(errMsg(e, "Failed to update applicant"));
                   } finally {
                     setSubmitting(false);
                   }
@@ -299,12 +321,13 @@ export default function ApplicantsPage() {
               try {
                 await deleteApplicant(pendingDelete.id);
                 setPendingDelete(null);
-                refresh(selectedId);
-              } catch (e: any) {
-                alert(e?.message ?? "Failed to delete");
+                await refresh(selectedId);
+              } catch (e: unknown) {
+                alert(errMsg(e, "Failed to delete"));
               }
             }}
           />
+
           {/* AI Summary Modal */}
           <Modal
             open={summaryOpen}
@@ -332,7 +355,7 @@ export default function ApplicantsPage() {
                   <button
                     className="rounded-lg border px-3 py-1 hover:bg-slate-50"
                     onClick={() => {
-                      if (summary) navigator.clipboard.writeText(summary);
+                      if (summary) void navigator.clipboard.writeText(summary);
                     }}
                   >
                     Copy
