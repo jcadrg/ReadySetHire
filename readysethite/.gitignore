@@ -25,3 +25,8 @@ dist-ssr
 
 # Local environment files
 .env.local
+
+# never commit env files
+.env
+*.env
+server/.env
